@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WEATHER APP</title>
+    <link rel="stylesheet" href="mini.css">
+</head> 
+<body >
+    <div class="card" >
+        <div class="search">
+            <input type="text" placeholder="Enter city name" spellcheck="false">
+            <button><img src="images/search.png" alt="search"></button>
+        </div>
+        <div class="error">
+            <p>Invalid city name</p>
+        </div>
+        <div class="weather">
+            <img src="images/rain.png" alt="rain" class="weather-icon">
+            <h1 class="temp">21°C</h1>
+            <h2 class="city">New York</h2>
+            <div class="details">
+                <div class="col">
+                    <img src="images/humidity.png">
+                    <div>
+                        <p class="humidity">60%</p>
+                        <p>Humidity</p>
+                    </div>
+                </div>
+                <div class="col">
+                    <img src="images/wind.png">
+                    <div>
+                        <p class="wind">25km/h</p>
+                        <p>Wind Speed</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="forecast">
+            <h2>5-Day Forecast</h2>
+            <div class="forecast-container">
+                
+            </div>
+        </div>
+        <div class="alert">
+
+        </div>
+        <div class="precipitation">
+            
+        </div>
+    </div>
+
+    <script>
+        const apikey = "ea64763fc19071c3be1824b239e72f78";
+        const apiurl = "https://api.openweathermap.org/data/2.5/";
+        const searchBox = document.querySelector(".search input");
+        const searchBtn = document.querySelector(".search button");
+        const weatherIcon = document.querySelector(".weather-icon");
+    
+        async function fetchWeather(city) {
+            const response = await fetch(`${apiurl}weather?units=metric&q=${city}&appid=${apikey}`);
+            return response.json();
+        }
+    
+        async function fetchForecast(city) {
+            const response = await fetch(`${apiurl}forecast?units=metric&q=${city}&appid=${apikey}`);
+            return response.json();
+        }
+    
+        async function displayWeather(city) {
+            try {
+                const data = await fetchWeather(city);
+                document.querySelector(".city").textContent = data.name;
+                document.querySelector(".temp").textContent = `${data.main.temp}°C`;
+                document.querySelector(".humidity").textContent = `${data.main.humidity}%`;
+                document.querySelector(".wind").textContent = `${data.wind.speed}km/h`;
+               
+                const weather = data.weather[0].main.toLowerCase();
+                weatherIcon.src = `images/${weather}.png`;
+                document.querySelector(".weather").style.display = "block";
+                document.querySelector(".error").style.display = "none";
+    
+                
+                saveWeatherData(city, data.main.temp, data.main.humidity, data.wind.speed, weather);
+    
+                const forecastData = await fetchForecast(city);
+                displayForecast(forecastData);
+                displayAlert(forecastData);
+                displayPrecipitation(forecastData);
+            } catch (error) {
+                document.querySelector(".error").style.display = "block";
+                document.querySelector(".weather").style.display = "none";
+                document.querySelector(".forecast").style.display = "none";
+                document.querySelector(".alert").style.display = "none";
+                document.querySelector(".precipitation").style.display = "none";
+            }
+        }
+    
+        function displayForecast(forecastData) {
+            const forecastContainer = document.querySelector(".forecast-container");
+            forecastContainer.innerHTML = ""; 
+            const forecasts = forecastData.list.slice(0, 5); 
+            forecasts.forEach(forecast => {
+                const date = new Date(forecast.dt * 1000); 
+                const day = date.toLocaleDateString("en-US", { weekday: "short" });
+                const temp = Math.round(forecast.main.temp);
+                const weather = forecast.weather[0].main.toLowerCase();
+                const icon = `images/${weather}.png`;
+                const forecastHTML = `
+                    <div class="day">
+                        <p class="day-name">${day}</p>
+                        <img src="${icon}" alt="${weather}" class="forecast-icon">
+                        <p class="temp">${temp}°C</p>
+                    </div>`;
+                forecastContainer.insertAdjacentHTML("beforeend", forecastHTML);
+            });
+            document.querySelector(".forecast").style.display = "block";
+        }
+    
+        function displayAlert(forecastData) {
+            const alerts = forecastData.list.some(item => item.weather[0].main.toLowerCase() === "rain");
+            const alertElement = document.querySelector(".alert");
+            if (alerts) {
+                alertElement.innerHTML = "<p>Alert: Rain expected!</p>";
+                alertElement.style.display = "block";
+            } else {
+                alertElement.style.display = "none";
+            }
+        }
+    
+        function displayPrecipitation(forecastData) {
+            const precipitationData = forecastData.list.map(item => {
+                const date = new Date(item.dt * 1000); 
+                const hour = date.getHours();
+                const precipitation = item.weather[0].main.toLowerCase() === "rain" ? 1 : 0;
+                return { hour, precipitation };
+            });
+            
+            document.querySelector(".precipitation").innerHTML = "<p>Precipitation graph will be displayed here</p>";
+            document.querySelector(".precipitation").style.display = "block";
+        }
+    
+        function saveWeatherData(city, temperature, humidity, windSpeed, weatherCondition) {
+            const formData = new FormData();
+            formData.append("city", city);
+            formData.append("temperature", temperature);
+            formData.append("humidity", humidity);
+            formData.append("wind_speed", windSpeed);
+            formData.append("weather_condition", weatherCondition);
+    
+            fetch("save_weather.php", {
+                method: "POST",
+                body: formData
+            }).then(response => {
+                if (!response.ok) {
+                    throw new Error("Failed to save weather data");
+                }
+            }).catch(error => {
+                console.error("Error saving weather data:", error);
+            });
+        }
+    
+        searchBtn.addEventListener("click", () => {
+            displayWeather(searchBox.value);
+        });
+    
+    </script>
+    
+</body>
+</html>
